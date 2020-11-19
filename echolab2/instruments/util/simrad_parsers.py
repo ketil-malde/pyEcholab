@@ -76,12 +76,12 @@ class _SimradDatagramParser(object):
             type_ = data['type'][:3]
             version   = int(data['type'][3])
 
-        elif isinstance(data, str):
+        elif isinstance(data, bytes):
             type_ = data[:3]
-            version   = int(data[3])
+            version   = int(data[3]-48) # subtract ASCII value of '0'
 
         else:
-            raise TypeError('Expected a dict or str')
+            raise TypeError('Expected a dict or bytes')
 
         if type_ != self._id:
             raise ValueError('Expected data of type %s, not %s' %(self._id, type_))
@@ -94,7 +94,6 @@ class _SimradDatagramParser(object):
     def from_string(self, raw_string, bytes_read):
 
         header = raw_string[:4]
-        header = header.decode()
         id_, version = self.validate_data_header(header)
         return self._unpack_contents(raw_string, bytes_read, version=version)
 
@@ -159,8 +158,6 @@ class SimradDepthParser(_SimradDatagramParser):
 
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['timestamp'] = data['timestamp'].replace(tzinfo=None)
@@ -254,8 +251,6 @@ class SimradBottomParser(_SimradDatagramParser):
 
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['timestamp'] = data['timestamp'].replace(tzinfo=None)
@@ -333,8 +328,6 @@ class SimradAnnotationParser(_SimradDatagramParser):
 
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['timestamp'] = data['timestamp'].replace(tzinfo=None)
@@ -407,7 +400,7 @@ class SimradNMEAParser(_SimradDatagramParser):
                             ]
                         }
 
-        _SimradDatagramParser.__init__(self, "NME", headers)
+        _SimradDatagramParser.__init__(self, b'NME', headers)
 
 
     def _unpack_contents(self, raw_string, bytes_read, version):
@@ -425,8 +418,6 @@ class SimradNMEAParser(_SimradDatagramParser):
 
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['timestamp'] = data['timestamp'].replace(tzinfo=None)
@@ -512,7 +503,7 @@ class SimradMRUParser(_SimradDatagramParser):
                       ]
                    }
 
-        _SimradDatagramParser.__init__(self, "MRU", headers)
+        _SimradDatagramParser.__init__(self, b'MRU', headers)
 
 
     def _unpack_contents(self, raw_string, bytes_read, version):
@@ -530,8 +521,6 @@ class SimradMRUParser(_SimradDatagramParser):
 
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['timestamp'] = data['timestamp'].replace(tzinfo=None)
@@ -691,7 +680,7 @@ class SimradXMLParser(_SimradDatagramParser):
                             ]
                         }
 
-        _SimradDatagramParser.__init__(self, "XML", headers)
+        _SimradDatagramParser.__init__(self, b"XML", headers)
 
 
     def _unpack_contents(self, raw_string, bytes_read, version):
@@ -760,8 +749,6 @@ class SimradXMLParser(_SimradDatagramParser):
         header_values = struct.unpack(self.header_fmt(version), raw_string[:self.header_size(version)])
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
 
         #  add the unix timestanp and bytes read
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
@@ -1016,7 +1003,7 @@ class SimradFILParser(_SimradDatagramParser):
                       ]
                    }
 
-        _SimradDatagramParser.__init__(self, 'FIL', headers)
+        _SimradDatagramParser.__init__(self, b'FIL', headers)
 
 
     def _unpack_contents(self, raw_string, bytes_read, version):
@@ -1027,17 +1014,13 @@ class SimradFILParser(_SimradDatagramParser):
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
 
-            #  handle Python 3 strings
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode('latin_1')
-
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['timestamp'] = data['timestamp'].replace(tzinfo=None)
         data['bytes_read'] = bytes_read
 
         if version == 1:
             #  clean up the channel ID
-            data['channel_id'] = data['channel_id'].strip('\x00')
+            data['channel_id'] = data['channel_id'].strip(b'\x00')
 
             #  unpack the coefficients
             indx = self.header_size(version)
@@ -1196,7 +1179,7 @@ class SimradConfigParser(_SimradDatagramParser):
                       ('high_date', 'L')
                       ]}
 
-        _SimradDatagramParser.__init__(self, 'CON', headers)
+        _SimradDatagramParser.__init__(self, b'CON', headers)
 
         #  for CON0 datagrams, the data are not in XML format so the naming and
         #  typing system used for parsing XML data doesn't come into play. Here
@@ -1297,10 +1280,6 @@ class SimradConfigParser(_SimradDatagramParser):
         for indx, field in enumerate(self.header_fields(version)):
             header_data[field] = header_values[indx]
 
-            #  handle Python 3 strings
-            if isinstance(header_data[field], bytes):
-                header_data[field] = header_data[field].decode('latin_1')
-
         #  add the common fields to the return dict
         data['low_date'] = header_data['low_date']
         data['high_date'] = header_data['high_date']
@@ -1315,7 +1294,7 @@ class SimradConfigParser(_SimradDatagramParser):
         if version == 0:
 
             for field in ['transect_name', 'version', 'survey_name', 'sounder_name']:
-                common_params[field] = header_data[field].strip('\x00')
+                common_params[field] = header_data[field].strip(b'\x00')
 
             sounder_name = common_params['sounder_name']
             if sounder_name == 'MBES':
@@ -1324,10 +1303,10 @@ class SimradConfigParser(_SimradDatagramParser):
                 common_params['time_bias'] = _me70_extra_values[1]
                 common_params['sound_velocity_avg'] = _me70_extra_values[2]
                 common_params['sound_velocity_transducer'] = _me70_extra_values[3]
-                common_params['spare0'] = data['spare0'][:14] + data['spare0'][14:].strip('\x00')
+                common_params['spare0'] = data['spare0'][:14] + data['spare0'][14:].strip(b'\x00')
 
             else:
-                common_params['spare0'] = header_data['spare0'].strip('\x00')
+                common_params['spare0'] = header_data['spare0'].strip(b'\x00')
 
             buf_indx = self.header_size(version)
 
@@ -1350,11 +1329,8 @@ class SimradConfigParser(_SimradDatagramParser):
                 txcvr_header_values_encoded = struct.unpack(txcvr_header_fmt,
                         raw_string[buf_indx:buf_indx + txcvr_header_size])
                 txcvr_header_values = list(txcvr_header_values_encoded)
-                for tx_idx, tx_val in enumerate(txcvr_header_values_encoded):
-                    if isinstance(tx_val, bytes):
-                        txcvr_header_values[tx_idx] = tx_val.decode()
 
-                channel_id = txcvr_header_values[0].strip('\x00')
+                channel_id = txcvr_header_values[0].strip(b'\x00')
                 txcvr = data['configuration'].setdefault(channel_id, {})
                 txcvr.update(common_params)
 
@@ -1379,17 +1355,17 @@ class SimradConfigParser(_SimradDatagramParser):
                     raise RuntimeError('Unknown _sounder_name_used (Should not happen, this is a bug!)')
 
                 txcvr['channel_id']           = channel_id
-                txcvr['spare1']               = txcvr['spare1'].strip('\x00')
-                txcvr['spare2']               = txcvr['spare2'].strip('\x00')
-                txcvr['spare3']               = txcvr['spare3'].strip('\x00')
-                txcvr['spare4']               = txcvr['spare4'].strip('\x00')
-                txcvr['gpt_software_version'] = txcvr['gpt_software_version'].strip('\x00')
+                txcvr['spare1']               = txcvr['spare1'].strip(b'\x00')
+                txcvr['spare2']               = txcvr['spare2'].strip(b'\x00')
+                txcvr['spare3']               = txcvr['spare3'].strip(b'\x00')
+                txcvr['spare4']               = txcvr['spare4'].strip(b'\x00')
+                txcvr['gpt_software_version'] = txcvr['gpt_software_version'].strip(b'\x00')
 
                 buf_indx += txcvr_header_size
 
         elif version == 1:
             #CON1 only has a single data field:  beam_config, holding an xml string
-            data['beam_config'] = raw_string[self.header_size(version):].strip('\x00')
+            data['beam_config'] = raw_string[self.header_size(version):].strip(b'\x00')
 
 
         return data
@@ -1555,7 +1531,7 @@ class SimradRawParser(_SimradDatagramParser):
                         ('count', 'l')
                         ]
                     }
-        _SimradDatagramParser.__init__(self, 'RAW', headers)
+        _SimradDatagramParser.__init__(self, b'RAW', headers)
 
     def _unpack_contents(self, raw_string, bytes_read, version):
 
@@ -1565,8 +1541,6 @@ class SimradRawParser(_SimradDatagramParser):
 
         for indx, field in enumerate(self.header_fields(version)):
             data[field] = header_values[indx]
-            if isinstance(data[field], bytes):
-                data[field] = data[field].decode()
 
         data['timestamp'] = nt_to_unix((data['low_date'], data['high_date']))
         data['timestamp'] = data['timestamp'].replace(tzinfo=None)
@@ -1597,7 +1571,7 @@ class SimradRawParser(_SimradDatagramParser):
         elif version == 3:
 
             #  clean up the channel ID
-            data['channel_id'] = data['channel_id'].strip('\x00')
+            data['channel_id'] = data['channel_id'].strip(b'\x00')
 
             if data['count'] > 0:
 
