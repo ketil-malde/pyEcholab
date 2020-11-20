@@ -551,7 +551,7 @@ class EK80(object):
                 return result
 
         #  update the ping counter
-        if new_datagram['type'].startswith('RAW'):
+        if new_datagram['type'].startswith(b'RAW'):
             if self._this_ping_time != new_datagram['timestamp']:
                 self.n_pings += 1
                 self._this_ping_time = new_datagram['timestamp']
@@ -588,7 +588,7 @@ class EK80(object):
         #  FIL datagrams store parameters used to filter the received signal
         #  EK80 class stores the filters for the currently being read file.
         #  Filters are stored by channel ID and then by filter stage
-        if new_datagram['type'].startswith('FIL'):
+        if new_datagram['type'].startswith(b'FIL'):
 
             # Check if we're storing this channel
             if new_datagram['channel_id'] in self.channel_ids:
@@ -601,7 +601,7 @@ class EK80(object):
                          'coefficients':new_datagram['coefficients']}
 
         # RAW datagrams store raw acoustic data for a channel.
-        elif new_datagram['type'].startswith('RAW'):
+        elif new_datagram['type'].startswith(b'RAW'):
 
             #  check if we should set our start time property
             if not self.start_time:
@@ -659,20 +659,20 @@ class EK80(object):
                     end_sample=self.read_end_sample)
 
         # NME datagrams store ancillary data as NMEA-0183 style ASCII data.
-        elif new_datagram['type'].startswith('NME'):
+        elif new_datagram['type'].startswith(b'NME'):
             # Add the datagram to our nmea_data object.
             self.nmea_data.add_datagram(new_datagram['timestamp'],
                     new_datagram['nmea_string'])
 
         # TAG datagrams contain time-stamped annotations inserted via the
         # recording software. They are not associated with a specific channel
-        elif new_datagram['type'].startswith('TAG'):
+        elif new_datagram['type'].startswith(b'TAG'):
             # Add this datagram to our annotation_data object
             self.annotations.add_datagram(new_datagram['timestamp'],
                     new_datagram['text'])
 
         # XML datagrams contain contain data encoded as an XML string.
-        elif new_datagram['type'].startswith('XML'):
+        elif new_datagram['type'].startswith(b'XML'):
             #  XML datagrams have a subtype field identifying what
             #  kind of data they contain.
             if new_datagram['subtype'] == 'parameter':
@@ -684,7 +684,7 @@ class EK80(object):
                 self._environment = new_datagram[new_datagram['subtype']]
 
         # MRU datagrams contain vessel motion data
-        elif new_datagram['type'].startswith('MRU'):
+        elif new_datagram['type'].startswith(b'MRU'):
             # append this motion datagram to the motion_data object
             self.motion_data.add_datagram(new_datagram['timestamp'],
                     new_datagram['heave'], new_datagram['pitch'],
@@ -1525,7 +1525,8 @@ class EK80(object):
                     msg = msg + ("        " + channel_id + " :: " + raw.data_type + " " + str(raw.shape) + "\n")
             msg = msg + ("    data start time: " + str(self.start_time) + "\n")
             msg = msg + ("      data end time: " + str(self.end_time) + "\n")
-            msg = msg + ("    number of pings: " + str(self.end_ping -
+            if self.end_ping and self.start_ping:
+                msg = msg + ("    number of pings: " + str(self.end_ping -
                                                        self.start_ping + 1) + "\n")
 
         else:
