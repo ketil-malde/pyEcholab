@@ -592,7 +592,7 @@ class EK60(object):
                 return result
 
         #  update the ping counter
-        if new_datagram['type'].startswith('RAW'):
+        if new_datagram['type'].startswith(b'RAW'):
             #  make sure this is a unique time
             if self._this_ping_time != new_datagram['timestamp']:
                 self.n_pings += 1
@@ -631,7 +631,7 @@ class EK60(object):
         # Process and store the datagrams by type.
 
         # RAW datagrams store raw acoustic data for a channel.
-        if new_datagram['type'].startswith('RAW'):
+        if new_datagram['type'].startswith(b'RAW'):
 
             #  check if we should set our start time property
             if not self.start_time:
@@ -681,21 +681,21 @@ class EK60(object):
                     new_datagram['roll'], new_datagram['heading'])
 
         # NME datagrams store ancillary data as NMEA-0183 style ASCII data.
-        elif new_datagram['type'].startswith('NME'):
+        elif new_datagram['type'].startswith(b'NME'):
             # Add the datagram to our nmea_data object.
             self.nmea_data.add_datagram(new_datagram['timestamp'],
                     new_datagram['nmea_string'])
 
         # TAG datagrams contain time-stamped annotations inserted via the
         # recording software. They are not associated with a specific channel
-        elif new_datagram['type'].startswith('TAG'):
+        elif new_datagram['type'].startswith(b'TAG'):
             # Add this datagram to our annotation_data object
             self.annotations.add_datagram(new_datagram['timestamp'],
                     new_datagram['text'])
 
         # BOT datagrams contain bottom detections - these data are synchronous
         # with the RAW datagrams
-        elif new_datagram['type'].startswith('BOT'):
+        elif new_datagram['type'].startswith(b'BOT'):
             # iterate through the channels in this .bot file
             for i in range(self._file_channels):
                 # Get this channel's ID
@@ -721,7 +721,7 @@ class EK60(object):
                         data.detected_bottom[idx] = new_datagram['depth'][i]
 
         # XML datagrams contain contain data encoded as an XML string.
-        elif new_datagram['type'].startswith('XML'):
+        elif new_datagram['type'].startswith(b'XML'):
             #  XML datagrams have a subtype field identifying what
             #  kind of data they contain.
             if new_datagram['subtype'] == 'parameter':
@@ -733,12 +733,12 @@ class EK60(object):
                 self._environment = new_datagram[new_datagram['subtype']]
 
         # MRU datagrams contain vessel motion data
-        elif new_datagram['type'].startswith('MRU'):
+        elif new_datagram['type'].startswith(b'MRU'):
             # append this motion datagram to the motion_data object
             self.motion_data.add_datagram(new_datagram)
 
         # DEP datagrams contain bottom detection and "reflectivity" data
-        elif new_datagram['type'].startswith('DEP'):
+        elif new_datagram['type'].startswith(b'DEP'):
             # iterate through the channels in this .out file
             for i in range(self._file_channels):
                 # Get this channel's ID
@@ -1530,7 +1530,7 @@ class EK60(object):
             for channel_num in self.channel_map.keys():
                 channel_id = self.channel_map[channel_num]
                 for raw in self.raw_data[channel_id]:
-                    msg = msg + ("        " + str(channel_num) + " :: " + channel_id + " :: " +
+                    msg = msg + ("        " + str(channel_num) + " :: " + channel_id.decode('iso-8859-1') + " :: " +
                             raw.data_type + " " + str(raw.shape) + "\n")
             msg = msg + ("    data start time: " + str(self.start_time) + "\n")
             msg = msg + ("      data end time: " + str(self.end_time) + "\n")
@@ -3256,7 +3256,7 @@ class raw_data(ping_data):
         # Print some more info about the EK60.raw_data instance.
         n_pings = len(self.ping_time)
         if n_pings > 0:
-            msg = msg + "                channel(s): " + self.channel_id + "\n"
+            msg = msg + "                channel(s): " + self.channel_id.decode('iso-8859-1') + "\n"
             msg = msg + "    frequency (first ping): " + str(
                 self.frequency[0]) + " Hz\n"
             msg = msg + " pulse length (first ping): " + str(
