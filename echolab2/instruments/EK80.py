@@ -528,8 +528,14 @@ class EK80(object):
             return result
 
         # Convert the timestamp to a datetime64 object.
-        new_datagram['timestamp'] = \
-                np.datetime64(new_datagram['timestamp'], '[ms]')
+        # Check for NULL datagram date/time which is returned as datetime.datetime(1601, 1, 1, 0, 0)
+        if new_datagram['timestamp'].year < 1900:
+            # This datagram has NULL date/time values
+            new_datagram['timestamp'] = np.datetime64("NaT")
+        else:
+            # We have a plausible date/time value
+            new_datagram['timestamp'] = \
+                    np.datetime64(new_datagram['timestamp'], '[ms]')
 
         #  update the return dict properties
         result['timestamp'] = new_datagram['timestamp']
@@ -1741,7 +1747,7 @@ class raw_data(ping_data):
 
 
     def insert(self, obj_to_insert, ping_number=None, ping_time=None,
-               insert_after=True, index_array=None):
+               insert_after=True, index_array=None, force=False):
         """Inserts data from one raw_data object into another. Pings within the
         obj_to_insert can be inserted as a block, or they can be inserted
         individually.
@@ -1804,7 +1810,9 @@ class raw_data(ping_data):
         resized to accomodate the maximum number of samples being stored. Existing
         samples are padded with NaNs as required. This vertical resize does not
         occur in chunks and the data are copied each time samples are added.
-        This can have significant performance impacts in very specific cases.
+        This can have significant performance impacts in specific cases and this
+        method may need to be extended to support bulk allocation of the sample axis
+        as well.
 
         If raw_data.rolling_array is true, the data arrays are not resized but
         the data within the arrays is "rolled" or shifted left and the column at
@@ -3158,7 +3166,7 @@ class raw_data(ping_data):
                 sample_interval = unique_sample_interval[0]
 
             # Check if we have a fixed sound speed.
-            unique_sound_velocity = np.unique(cal_parms['sound_speed'])
+            unique_sound_velocity = np.unique(cal_parms['sound_speed'][~np.isnan(cal_parms['sound_speed'])])
             if unique_sound_velocity.shape[0] > 1:
                 # There are at least 2 different sound speeds in the data or
                 # provided calibration data.  Interpolate all data to the most
@@ -3499,7 +3507,7 @@ class raw_data(ping_data):
             A dictionary with the keys 'inserted' and 'removed' containing the
             indices of the pings inserted and removed.
         """
-        super(processed_data, self).match_pings(other_data, match_to='cs')
+        return super(processed_data, self).match_pings(other_data, match_to='cs')
 
 
     def __str__(self):
@@ -3664,6 +3672,9 @@ class ek80_calibration(calibration):
         # stores the bits needed to compute it.
         self.absorption_coefficient = self._compute_absorption(raw_data,
             return_indices, self.absorption_method)
+
+        self.effective_pulse_duration = self.get_attribute_from_raw(raw_data,
+                param_name='effective_pulse_duration', return_indices=return_indices)
 
 
     def get_attribute_from_raw(self, raw_data, param_name, return_indices=None):

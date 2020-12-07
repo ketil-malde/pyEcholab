@@ -569,8 +569,14 @@ class EK60(object):
             return result
 
         # Convert the timestamp to a datetime64 object.
-        new_datagram['timestamp'] = \
-                np.datetime64(new_datagram['timestamp'], '[ms]')
+        # Check for NULL DG date which is returned as datetime.datetime(1601, 1, 1, 0, 0)
+        if new_datagram['timestamp'].year < 1900:
+            # This datagram has NULL date/time values
+            new_datagram['timestamp'] = np.datetime64("NaT")
+        else:
+            # We have a plausible date/time value
+            new_datagram['timestamp'] = \
+                    np.datetime64(new_datagram['timestamp'], '[ms]')
 
         #  update the return dict properties
         result['timestamp'] = new_datagram['timestamp']
@@ -2783,7 +2789,7 @@ class raw_data(ping_data):
             A dictionary with the keys 'inserted' and 'removed' containing the
             indices of the pings inserted and removed.
         """
-        super(raw_data, self).match_pings(other_data, match_to='cs')
+        return super(raw_data, self).match_pings(other_data, match_to='cs')
 
 
     def _get_electrical_angles(self, return_depth=False, calibration=None,
@@ -2990,7 +2996,7 @@ class raw_data(ping_data):
             sample_interval = unique_sample_interval[0]
 
         # Check if we have a fixed sound speed.
-        unique_sound_velocity = np.unique(cal_parms['sound_velocity'])
+        unique_sound_velocity = np.unique(cal_parms['sound_velocity'][~np.isnan(cal_parms['sound_velocity'])])
         if unique_sound_velocity.shape[0] > 1:
             # There are at least 2 different sound speeds in the data or
             # provided calibration data.  Interpolate all data to the most
@@ -3012,11 +3018,11 @@ class raw_data(ping_data):
                 if speed != sound_velocity:
 
                     # Get an array of indexes in the output array to interpolate.
-                    pings_to_interp = np.where(cal_parms['sound_speed'] == speed)[0]
+                    pings_to_interp = np.where(cal_parms['sound_velocity'] == speed)[0]
 
                     # Compute this data's range
                     resample_range = get_range_vector(output.shape[1], sample_interval,
-                        cal_parms['sound_speed'][pings_to_interp[0]], min_sample_offset)
+                        cal_parms['sound_velocity'][pings_to_interp[0]], min_sample_offset)
 
                     # Interpolate samples to target range
                     interp_f = interp1d(resample_range, output[pings_to_interp,:], axis=1,
